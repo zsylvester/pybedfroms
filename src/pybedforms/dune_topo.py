@@ -179,8 +179,8 @@ class DuneTopo(object):
             self.ZHORIZ = 1.001
 
         # Make the grids from dune init
-        self.CenterShift = 50
-        self.GridSize = 100
+        self.CenterShift = 100
+        self.GridSize = 200
         self.SurfGridSpace = 1
         self.EdgeGridSpace = 1
         self.x, self.y, self.XEdge, self.YEdge = make_grid_and_edges(self.CenterShift, self.GridSize, self.SurfGridSpace, self.EdgeGridSpace)
@@ -340,7 +340,20 @@ class DuneTopo(object):
 
 def plot_3d(topo, bottom_z, top_z, time_step, color=(0.88627451, 0.79215686, 0.4627451), ci = 0.1, scale=1, ve=1, dx=1, 
                                                     line_thickness=0.05, contour_switch=False, new_figure=False):
-    """function for plotting a set of bedforms in 3D"""
+    """function for plotting a set of bedforms in 3D
+    :param topo: array of stacked topographic surfaces that describe the bedform topography through time
+    :param bottom_z: elevation of the bottom of the model
+    :param top_z: elevation of the bottom of the model (if it is less than the maximum height of the dunes, they will be "eroded")
+    :param time_step: determines how many bedding surfaces will be drawn (default = 4)
+    :param color: color of the 'sand' (that is, of the model)
+    :param ci: contour interval (used only if contour_switch is 'True')
+    :param scale: scale of model (usually best to leave it at 1)
+    :param ve: vertical exaggeration
+    :param dx: horiozntal gridcell size
+    :param line_thickness: thickness of lines drawn, in units of the figure; has to be a relatively small number (default = 0.05)
+    :param contour_switch: determines whether contours are drawn on top of bedforms
+    :param new_figure: determines whether a new mlab figure is created or not
+    """
 
     if new_figure:
         mlab.figure(bgcolor=(1,1,1))
@@ -378,14 +391,14 @@ def plot_3d(topo, bottom_z, top_z, time_step, color=(0.88627451, 0.79215686, 0.4
     z = scale*ve*vertices[:,1]
     mlab.triangular_mesh(x,y,z,triangles,color=color)
 
-    # left edge (looking downdip):
+    # left edge:
     vertices, triangles = create_section(z1[0,:],dx,bottom_z) 
     x = scale*(np.zeros(np.shape(vertices[:,0])))
     y = scale*(vertices[:,0])
     z = scale*ve*vertices[:,1]
     mlab.triangular_mesh(x,y,z,triangles,color=color)
 
-    # right edge (looking downdip):
+    # right edge:
     vertices, triangles = create_section(z1[-1,:],dx,bottom_z) 
     x = scale*((r-1)*dx*np.ones(np.shape(vertices[:,0])))
     y = scale*(vertices[:,0])
@@ -425,7 +438,7 @@ def plot_3d(topo, bottom_z, top_z, time_step, color=(0.88627451, 0.79215686, 0.4
             Z1 = ve*scale*top
             mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
 
-        top = strat2[0,:,layer_n+1]  # left edge (looking downdip)
+        top = strat2[0,:,layer_n+1]  # left edge
         base = strat2[0,:,layer_n]
         X1 = scale*(np.zeros(np.shape(base)))
         Y1 = scale*(dx*np.arange(0,c))
@@ -435,7 +448,7 @@ def plot_3d(topo, bottom_z, top_z, time_step, color=(0.88627451, 0.79215686, 0.4
             Z1 = ve*scale*top
             mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
 
-        top = strat2[-1,:,layer_n+1] # right edge (looking downdip)
+        top = strat2[-1,:,layer_n+1] # right edge
         base = strat2[-1,:,layer_n]
         X1 = scale*(dx*(r-1)*np.ones(np.shape(base)))
         Y1 = scale*(dx*np.arange(0,c))
@@ -463,13 +476,11 @@ def plot_3d(topo, bottom_z, top_z, time_step, color=(0.88627451, 0.79215686, 0.4
 
 def create_section(profile, dx, bottom):
     """function for creating a cross section from a top surface
-    inputs:
-    profile - elevation data for top surface
-    dx - gridcell size
-    bottom - elevation value for the bottom of the block
-    returns:
-    vertices - coordinates of vertices
-    triangles - indices of the 'vertices' array that from triangles (for triangular mesh)
+    :param profile: elevation data for top surface
+    :param dx: gridcell size
+    :param bottom: elevation value for the bottom of the block
+    :return vertices: coordinates of vertices
+    :return triangles: indices of the 'vertices' array that from triangles (for triangular mesh)
     """
     x1 = dx*np.linspace(0, len(profile)-1, len(profile))
     x = np.hstack((x1, x1[::-1]))
@@ -482,22 +493,59 @@ def create_section(profile, dx, bottom):
         triangles.append([i+1,n-i-1,n-i-2])
     return vertices, triangles
 
-def extract_core(topo, scale = 1, ve = 1, x0 = 50, y0 = 50, dx = 1, radius = 3, num = 50, bottom = 0, time_step = 4, line_thickness = 0.025):
-    """function for extracting a "core" from the model"""
+def extract_core(topo, scale = 1, ve = 1, x0 = 50, y0 = 50, dx = 1, radius = 3, num = 50, bottom = 0, time_step = 4, line_thickness = 0.025, plot_core_image = True):
+    """function for extracting a "core" from the model
+    :param topo: array of stacked topographic surfaces that describe the bedform topography through time
+    :param scale: scale of 3D plot (default = 1)
+    :param ve: vertical exaggeration (default = 1)
+    :param x0: x-coordinate location of core (default = 50)
+    :param y0: y-coordinate location of core (default = 50)
+    :param dx: gridcell size (default = 1)
+    :param radius: radius of core (default = 3)
+    :param num: number of faces that define the cylinder (default = 50)
+    :param bottom: elevation of the bottom of the core (default = 0)
+    :param time_step: determines how many bedding surfaces will be drawn (default = 4)
+    :param line_thickness: thickness of lines drawn, in units of the figure; has to be a relatively small number (default = 0.025)
+    """
     strat = np.minimum.accumulate(topo[:, :, ::-1], axis=2)[:, :, ::-1] # convert topography to stratigraphy
     r, c, ts = np.shape(strat)
-    strat2 = strat.copy()
-    strat2[strat<bottom] = bottom
-    X1 = x0 + np.cos(2*pi/num*np.arange(num))*radius
-    X1 = np.hstack((X1, X1[0]))
-    Y1 = y0 + np.sin(2*pi/num*np.arange(num))*radius
-    Y1 = np.hstack((Y1, Y1[0]))
-    top = scipy.ndimage.map_coordinates(strat2[:,:,-1], np.vstack((Y1, X1)))
+    strat[strat<bottom] = bottom # clip stratigraphy to the bottom z value
+    X1 = x0 + np.cos(2*pi/num*np.arange(num))*radius # x coordinates for circle
+    X1 = np.hstack((X1, X1[0])) # add first point to close the circle
+    Y1 = y0 + np.sin(2*pi/num*np.arange(num))*radius # y coordinates for circle
+    Y1 = np.hstack((Y1, Y1[0])) # add first point to close the circle
+    top = scipy.ndimage.map_coordinates(strat[:,:,-1], np.vstack((Y1, X1)))
     vertices, triangles = create_section(top, dx, bottom) 
     color = (0.886, 0.792, 0.463) # color for plotting basal part of panel
+    # plot core tube:
     mlab.triangular_mesh(scale*np.hstack((dx*X1,dx*X1[::-1])),
                         scale*np.hstack((dx*Y1,dx*Y1[::-1])),scale*ve*vertices[:,1],triangles,color=color)
+    # create and plot surfaces:
     t_steps = np.hstack((np.arange(0, ts, time_step), ts-1))
+    z1s = np.zeros((len(X1), len(t_steps)-1)) # array to store initial z values
     for layer_n in tqdm(t_steps): # main loop
-        Z1 = scipy.ndimage.map_coordinates(strat2[:,:,layer_n], np.vstack((Y1, X1)))
-        mlab.plot3d(X1, Y1, Z1, color=(0,0,0), tube_radius = line_thickness)
+        z1s[:, layer_n] = scipy.ndimage.map_coordinates(strat[:,:,layer_n], np.vstack((Y1, X1)))
+    z1s = np.minimum.accumulate(z1s[:, ::-1], axis=1)[:, ::-1] # make sure that stratigraphy is watertight
+    for layer_n in t_steps: # plotting
+        mlab.plot3d(X1, Y1, z1s[:, layer_n], color=(0,0,0), tube_radius = line_thickness)
+
+    if plot_core_image:
+        plt.figure(figsize=(5, 15))
+        for i in range(1000):
+            plt.plot(z1s[:,i], 'k', linewidth=0.5)
+        plt.axis('tight')
+
+def create_3D_movie_frames(topo, fname, start_frame=10, end_frame=100, bottom_z=0, top_z=50, time_step=4, 
+                           color=(0.9, 0.9, 0.9), ci=0.5, scale=1, ve=1, dx=1, line_thickness=0.05, 
+                           contour_switch=False, azimuth=35, elevation=60, distance=270, 
+                           focalpoint=np.array([50, 50, 10])):
+    count = 0
+    for end_time in range(start_frame+1, end_frame, time_step):
+        dt.plot_3d(dune.TOPO[:,:,:end_time], bottom_z=bottom_z, top_z=top_z, time_step=time_step, 
+                   color=color, ci=ci, scale=scale, ve=ve, dx=dx, line_thickness=line_thickness, 
+                   contour_switch=contour_switch, new_figure=False)
+        mlab.view(azimuth=azimuth, elevation=elevation, distance=distance, focalpoint=focalpoint)
+        filename = fname+'%03d.png'%(count)
+        mlab.savefig(filename)
+        mlab.clf()
+        count += 1
